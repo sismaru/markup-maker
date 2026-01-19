@@ -1,3 +1,5 @@
+[![markup-maker 사용하기](https://img.shields.io/badge/markup--maker-사용하기-blue?style=for-the-badge&logo=github)](https://sismaru.github.io/markup-maker/markup-maker.html)
+
 # Markup Maker (Excel to HTML Converter)
 
 엑셀 데이터를 HTML 템플릿에 맞춰 자동으로 변환해주는 도구입니다. 기획전, 이벤트 페이지 등 반복적인 HTML 코딩 작업을 자동화할 수 있습니다.
@@ -60,3 +62,4 @@
 ## 💡 팁 (Tips)
 - **데이터 정제**: 엑셀 셀 안에 줄바꿈이 있거나 따옴표가 있어도 걱정하지 마세요. 프로그램이 알아서 깔끔하게 정리해줍니다.
 - **히스토리**: 작업 내용은 브라우저에 자동 저장되어, 새로고침 해도 설정이 유지됩니다.
+
