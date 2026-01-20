@@ -50,6 +50,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     els.btnAddProduct.addEventListener('click', handleAddProduct);
 
+    // Smart Paste for Brand Name
+    els.colBrandName.addEventListener('paste', handleBrandPaste);
+    // Smart Paste for Product 1 Code
+    els.colP1Code.addEventListener('paste', handleProductPaste);
+
     // Functions
 
     function initTabs() {
@@ -116,12 +121,20 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         els.tabContentsContainer.appendChild(newContent);
 
+        // Attach Paste Listener to new Code Input
+        const newCodeInput = newContent.querySelector(`#colP${nextNum}Code`);
+        if (newCodeInput) {
+            newCodeInput.addEventListener('paste', handleProductPaste);
+        }
+
         // 3. Sync Template
         addTemplateBlock(nextNum);
 
         // Switch to new tab
         switchTab(newBtn);
     }
+
+    // ... (rest of functions) ...
 
     function removeProductTab(tabBtn) {
         if (!confirm('이 상품 탭을 삭제하시겠습니까? 입력된 데이터도 함께 삭제됩니다.')) return;
@@ -147,6 +160,74 @@ document.addEventListener('DOMContentLoaded', () => {
             if (allTabs.length > 0) {
                 switchTab(allTabs[allTabs.length - 1]);
             }
+        }
+    }
+
+    function handleProductPaste(e) {
+        e.preventDefault();
+        const clipboardData = (e.clipboardData || window.clipboardData).getData('text');
+        if (!clipboardData) return;
+
+        // New Parsing Logic:
+        // 1. Split by Tab
+        // 2. Process chunks (Unquote & Trim OR Split by Newline)
+        // 3. Flatten and Group by 4
+
+        const rawChunks = clipboardData.split('\t');
+        const tokens = [];
+
+        rawChunks.forEach(chunk => {
+            let processed = chunk;
+
+            // Check for quotes (Excel artifact for multiline/special chars)
+            const trimmed = processed.trim();
+            if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+                // It's a quoted cell.
+                // Remove start/end quotes
+                let content = trimmed.slice(1, -1);
+                // Unescape double quotes ("" -> ")
+                content = content.replace(/""/g, '"');
+                // Trim to remove internal newlines (User request: "backspace concept")
+                tokens.push(content.trim());
+            } else {
+                // Not quoted. Might contain row breaks (newlines).
+                // Split by newline
+                const parts = processed.split(/\r?\n/);
+                parts.forEach(p => {
+                    if (p.trim()) tokens.push(p.trim());
+                });
+            }
+        });
+
+        const codes = [];
+        const names = [];
+        const prices = [];
+        const discs = [];
+
+        // Distribute by Modulo 4
+        // Order: Code, Name, Price, Discount
+        tokens.forEach((token, index) => {
+            const mod = index % 4;
+            if (mod === 0) codes.push(token);
+            if (mod === 1) names.push(token);
+            if (mod === 2) prices.push(token);
+            if (mod === 3) discs.push(token);
+        });
+
+        // Find sibling inputs
+        const targetInput = e.target;
+        const parentTab = targetInput.closest('.tab-content');
+
+        if (parentTab) {
+            const codeInput = parentTab.querySelector('textarea[id$="Code"]');
+            const nameInput = parentTab.querySelector('textarea[id$="Name"]');
+            const discInput = parentTab.querySelector('textarea[id$="Disc"]');
+            const priceInput = parentTab.querySelector('textarea[id$="Price"]');
+
+            if (codeInput) codeInput.value = codes.join('\n');
+            if (nameInput) nameInput.value = names.join('\n');
+            if (priceInput) priceInput.value = prices.join('\n');
+            if (discInput) discInput.value = discs.join('\n');
         }
     }
 
@@ -362,5 +443,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+    }
+
+    function handleBrandPaste(e) {
+        e.preventDefault();
+        const clipboardData = (e.clipboardData || window.clipboardData).getData('text');
+
+        if (!clipboardData) return;
+
+        const rows = clipboardData.split(/\r?\n/).filter(row => row.trim() !== '');
+
+        const brandNames = [];
+        const brandDiscs = [];
+        const brandLandings = [];
+
+        rows.forEach(row => {
+            const cols = row.split('\t');
+            // Expected format: Brand Name | Max Discount | Brand Landing
+            if (cols.length >= 1) brandNames.push(cols[0].trim());
+            if (cols.length >= 2) brandDiscs.push(cols[1].trim());
+            if (cols.length >= 3) brandLandings.push(cols[2].trim());
+        });
+
+        // Append to existing values or replace? 
+        // Usually paste replaces selection or inserts at cursor, but for this bulk operation, 
+        // replacing the content or appending to empty is safer. 
+        // Let's just set the values, assuming the user wants to fill the columns.
+        // If the user wants to append, they can manually do it, but "Smart Paste" usually implies filling the form.
+        // However, standard paste behavior inserts at cursor. 
+        // Given the "Spreadsheet to Form" nature, replacing content or appending to end is common.
+        // Let's go with: If the field is empty, set it. If not, append with newline?
+        // Simpler approach for now: Just set the values as if filling the columns from scratch, 
+        // but let's respect if there's existing content? 
+        // The user request says "automatically enter into the next textarea", implying a bulk fill.
+        // Let's overwrite for now as it's the most likely intended behavior for a "paste from excel" feature.
+
+        els.colBrandName.value = brandNames.join('\n');
+        els.colBrandDisc.value = brandDiscs.join('\n');
+        els.colBrandLanding.value = brandLandings.join('\n');
     }
 });
