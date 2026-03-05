@@ -39,23 +39,282 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize
     // loadLastSettings(); // Disabled by user request: Always load default state
     initTabs();
+    initSaveLabels();
+    switchDataForm('default'); // Set initial form visibility with inline styles
 
     // Event Listeners
     els.btnConvert.addEventListener('click', handleConvert);
     els.btnCopy.addEventListener('click', handleCopy);
     els.btnCloseModal.addEventListener('click', closeModal);
-    els.btnClear.addEventListener('click', clearInputs);
+    if (els.btnClear) els.btnClear.addEventListener('click', clearInputs);
     els.outputModal.addEventListener('click', (e) => {
         if (e.target === els.outputModal) closeModal();
     });
     els.btnAddProduct.addEventListener('click', handleAddProduct);
 
-    // Smart Paste for Brand Name
+    // Smart Paste for Brand Name (Default form)
     els.colBrandName.addEventListener('paste', handleBrandPaste);
-    // Smart Paste for Product 1 Code
+    // Smart Paste for Product 1 Code (Default form)
     els.colP1Code.addEventListener('paste', handleProductPaste);
 
+    // Smart Paste for Brand List form
+    const blBrandName = document.getElementById('blBrandName');
+    if (blBrandName) blBrandName.addEventListener('paste', handleBrandListPaste);
+
+    // Smart Paste for Product List form
+    const plBrandName = document.getElementById('plBrandName');
+    if (plBrandName) plBrandName.addEventListener('paste', handleProductListPaste);
+
+    // Default placeholder names used in TEMPLATES presets
+    const DEFAULT_LABELS = {
+        brand: { brandName: '브랜드명', brandLanding: '브랜드랜딩', brandDisc: '최대할인율' },
+        product: { code: '온라인품번', name: '상품명', disc: '할인율', price: '최종 가격' }
+    };
+
+    // Template Presets
+    const TEMPLATES = {
+        default: `<!-- 브랜드 01부터 오름차순 -->
+<div class="swiper-slide">
+	<div class="md_brandSet_img">
+		<img src="{{이미지경로1}}" alt="">
+		<a href="{{브랜드랜딩}}" class="md_brandPrd_link">BRAND SHOP</a>
+	</div>
+	<!-- 대표상품 -->
+	<ul class="md_prdList">
+		<!-- 대표상품1 -->
+		<li>
+			<a href="/product/{{온라인품번}}/detail" class="md_prd_link">
+				<div class="md_prd_img">
+					<img src="{{이미지경로2}}" alt="">
+				</div>
+				<div class="md_prd_info">
+					<span class="brand">{{브랜드명}}</span>
+					<span class="product">{{상품명}}</span>
+					<div class="md_prd_price">
+						<span class="discount">{{할인율}}</span>
+						<span class="current">{{최종 가격}}</span>
+					</div>
+				</div>
+			</a>
+		</li>
+	</ul>
+</div>`,
+        brandList: `<li><a href="{{브랜드랜딩}}"><div class="brand-info"><h1 class="brand-name">{{브랜드명}}</h1><span class="shop-now">SHOP NOW ⇀</span></div><div class="sale-info"><span class="badge">&nbsp;</span><span class="percentage">{{최대할인율}}</span></div></a></li>`,
+        productList: `<li>
+	<a href="/product/{{온라인품번}}/detail" class="md_prd_link">
+		<div class="md_prd_img">
+			<img src="{{이미지경로2}}" alt="">
+		</div>
+		<div class="md_prd_info">
+			<span class="brand">{{브랜드명}}</span>
+			<span class="product">{{상품명}}</span>
+			<div class="md_prd_price">
+				<span class="discount">{{할인율}}</span>
+				<span class="current">{{최종가격}}</span>
+			</div>
+		</div>
+	</a>
+</li>`
+    };
+
+    /**
+     * Replace default placeholder names in a template string with current label values.
+     */
+    function applyCurrentLabelsToTemplate(templateStr) {
+        const labelMap = getLabelMap();
+        let result = templateStr;
+
+        // Brand labels
+        for (const field of Object.keys(DEFAULT_LABELS.brand)) {
+            const defaultName = DEFAULT_LABELS.brand[field];
+            const currentName = labelMap.brand[field];
+            if (currentName && currentName !== defaultName) {
+                result = result.split(`{{${defaultName}}}`).join(`{{${currentName}}}`);
+            }
+        }
+
+        // Product labels
+        for (const field of Object.keys(DEFAULT_LABELS.product)) {
+            const defaultName = DEFAULT_LABELS.product[field];
+            const currentName = labelMap.product[field];
+            if (currentName && currentName !== defaultName) {
+                result = result.split(`{{${defaultName}}}`).join(`{{${currentName}}}`);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Switch data form visibility based on selected template type.
+     */
+    function switchDataForm(templateType) {
+        const formDefault = document.getElementById('form-default');
+        const formBrandList = document.getElementById('form-brandList');
+        const formProductList = document.getElementById('form-productList');
+
+        const forms = [formDefault, formBrandList, formProductList];
+
+        // Hide all forms
+        forms.forEach(f => {
+            f.style.display = 'none';
+        });
+
+        // Show selected form with proper flex layout
+        let activeForm;
+        if (templateType === 'brandList') {
+            activeForm = formBrandList;
+        } else if (templateType === 'productList') {
+            activeForm = formProductList;
+        } else {
+            activeForm = formDefault;
+        }
+        activeForm.style.display = 'flex';
+        activeForm.style.flexDirection = 'column';
+        activeForm.style.flex = '1';
+        activeForm.style.overflow = 'hidden';
+    }
+
+    /**
+     * Get currently selected template type.
+     */
+    function getSelectedTemplateType() {
+        const checked = document.querySelector('input[name="templateType"]:checked');
+        return checked ? checked.value : 'default';
+    }
+
+    // Template Radio Handler
+    document.querySelectorAll('input[name="templateType"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const selected = e.target.value;
+
+            // Switch data form
+            switchDataForm(selected);
+
+            if (TEMPLATES[selected]) {
+                // Apply current label values to the preset template
+                els.templateInput.value = applyCurrentLabelsToTemplate(TEMPLATES[selected]);
+
+                // Fix: Restore added products if switching to default
+                if (selected === 'default') {
+                    const productTabs = document.querySelectorAll('.tab-btn[data-tab^="tab-prod"]');
+                    // Default template has Product 1. Add blocks for 2..N
+                    for (let i = 2; i <= productTabs.length; i++) {
+                        addTemplateBlock(i);
+                    }
+                }
+            }
+        });
+    });
+
     // Functions
+
+    /**
+     * Initialize Save Label button handlers via event delegation.
+     */
+    function initSaveLabels() {
+        // Containers that need save-label delegation
+        const containers = [
+            els.tabContentsContainer,
+            document.getElementById('form-brandList'),
+            document.getElementById('form-productList')
+        ];
+
+        containers.forEach(container => {
+            if (!container) return;
+
+            // Click handler for save buttons
+            container.addEventListener('click', (e) => {
+                if (e.target.classList.contains('btn-save-label')) {
+                    const labelGroup = e.target.closest('.label-group');
+                    const labelInput = labelGroup.querySelector('.editable-label');
+                    if (labelInput) saveLabel(labelInput);
+                }
+            });
+
+            // Enter key handler for editable-label inputs
+            container.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && e.target.classList.contains('editable-label')) {
+                    e.preventDefault();
+                    saveLabel(e.target);
+                }
+            });
+        });
+    }
+
+    /**
+     * Save a single label: update placeholder in template and data-prev attribute.
+     */
+    function saveLabel(labelInput) {
+        const newLabel = labelInput.value.trim();
+        const prevLabel = labelInput.getAttribute('data-prev');
+
+        if (!newLabel) {
+            alert('라벨명을 입력해주세요.');
+            labelInput.value = prevLabel;
+            return;
+        }
+
+        if (newLabel === prevLabel) return; // No change
+
+        // Replace old placeholder with new in template
+        const oldPlaceholder = `{{${prevLabel}}}`;
+        const newPlaceholder = `{{${newLabel}}}`;
+
+        const template = els.templateInput.value;
+        if (template.includes(oldPlaceholder)) {
+            els.templateInput.value = template.split(oldPlaceholder).join(newPlaceholder);
+        }
+
+        // Update data-prev to new value
+        labelInput.setAttribute('data-prev', newLabel);
+    }
+
+    /**
+     * Build a label map from current editable-label values.
+     * Returns: { brand: { brandName, brandLanding, brandDisc }, product: { code, name, disc, price } }
+     */
+    function getLabelMap() {
+        const templateType = getSelectedTemplateType();
+        const labelMap = {
+            brand: {
+                brandName: '브랜드명',
+                brandLanding: '브랜드랜딩',
+                brandDisc: '최대할인율'
+            },
+            product: {
+                code: '온라인품번',
+                name: '상품명',
+                disc: '할인율',
+                price: '최종 가격'
+            }
+        };
+
+        // Determine which form container to read labels from
+        let formContainer;
+        if (templateType === 'brandList') {
+            formContainer = document.getElementById('form-brandList');
+        } else if (templateType === 'productList') {
+            formContainer = document.getElementById('form-productList');
+        } else {
+            formContainer = document.getElementById('form-default');
+        }
+
+        if (!formContainer) return labelMap;
+
+        // Read all editable labels from the active form
+        formContainer.querySelectorAll('.editable-label').forEach(input => {
+            const field = input.getAttribute('data-field');
+            if (field && labelMap.brand.hasOwnProperty(field)) {
+                labelMap.brand[field] = input.value.trim() || labelMap.brand[field];
+            }
+            if (field && labelMap.product.hasOwnProperty(field)) {
+                labelMap.product[field] = input.value.trim() || labelMap.product[field];
+            }
+        });
+
+        return labelMap;
+    }
 
     function initTabs() {
         // Delegate click for tabs
@@ -72,9 +331,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function switchTab(clickedBtn) {
-        // Remove active class from all
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        const formDefault = document.getElementById('form-default');
+        // Only affect tabs within form-default, not Brand List / Product List forms
+        formDefault.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        formDefault.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
         // Add active class to clicked
         clickedBtn.classList.add('active');
@@ -98,24 +358,43 @@ document.addEventListener('DOMContentLoaded', () => {
         els.tabsContainer.insertBefore(newBtn, els.btnAddProduct);
 
         // 2. Create Tab Content
+        // Read current product label values from the first product tab
+        const currentLabelMap = getLabelMap();
+        const codeLabel = currentLabelMap.product.code;
+        const nameLabel = currentLabelMap.product.name;
+        const discLabel = currentLabelMap.product.disc;
+        const priceLabel = currentLabelMap.product.price;
+
         const newContent = document.createElement('div');
         newContent.id = newTabId;
         newContent.className = 'tab-content';
         newContent.innerHTML = `
             <div class="col-group">
-                <label>온라인 품번</label>
+                <div class="label-group">
+                    <input type="text" class="editable-label" data-field="code" data-prev="${codeLabel}" value="${codeLabel}">
+                    <button class="btn-save-label" title="저장">저장</button>
+                </div>
                 <textarea id="colP${nextNum}Code" placeholder="품번 열 붙여넣기"></textarea>
             </div>
             <div class="col-group">
-                <label>상품명</label>
+                <div class="label-group">
+                    <input type="text" class="editable-label" data-field="name" data-prev="${nameLabel}" value="${nameLabel}">
+                    <button class="btn-save-label" title="저장">저장</button>
+                </div>
                 <textarea id="colP${nextNum}Name" placeholder="상품명 열 붙여넣기"></textarea>
             </div>
             <div class="col-group">
-                <label>할인율</label>
+                <div class="label-group">
+                    <input type="text" class="editable-label" data-field="disc" data-prev="${discLabel}" value="${discLabel}">
+                    <button class="btn-save-label" title="저장">저장</button>
+                </div>
                 <textarea id="colP${nextNum}Disc" placeholder="할인율 열 붙여넣기"></textarea>
             </div>
             <div class="col-group">
-                <label>최종가격</label>
+                <div class="label-group">
+                    <input type="text" class="editable-label" data-field="price" data-prev="${priceLabel}" value="${priceLabel}">
+                    <button class="btn-save-label" title="저장">저장</button>
+                </div>
                 <textarea id="colP${nextNum}Price" placeholder="가격 열 붙여넣기"></textarea>
             </div>
         `;
@@ -164,9 +443,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleProductPaste(e) {
-        e.preventDefault();
         const clipboardData = (e.clipboardData || window.clipboardData).getData('text');
         if (!clipboardData) return;
+
+        // 탭이 없으면 기본 paste 동작 (해당 textarea에만 입력)
+        if (!clipboardData.includes('\t')) return;
+
+        e.preventDefault();
 
         // New Parsing Logic:
         // 1. Split by Tab
@@ -205,13 +488,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const discs = [];
 
         // Distribute by Modulo 4
-        // Order: Code, Name, Price, Discount
+        // Order: Code, Name, Discount, Price
         tokens.forEach((token, index) => {
             const mod = index % 4;
             if (mod === 0) codes.push(token);
             if (mod === 1) names.push(token);
-            if (mod === 2) prices.push(token);
-            if (mod === 3) discs.push(token);
+            if (mod === 2) discs.push(token);
+            if (mod === 3) prices.push(token);
         });
 
         // Find sibling inputs
@@ -293,35 +576,59 @@ document.addEventListener('DOMContentLoaded', () => {
         const template = els.templateInput.value;
         const pattern1 = document.getElementById('imagePattern1').value;
         const pattern2 = document.getElementById('imagePattern2').value;
+        const templateType = getSelectedTemplateType();
 
-        // Gather Column Data Dynamically
-        const columns = {
-            brandName: els.colBrandName.value,
-            brandLanding: els.colBrandLanding.value,
-            brandDisc: els.colBrandDisc.value,
-            products: []
-        };
+        let columns;
 
-        // Find all product content divs
-        const productTabs = document.querySelectorAll('.tab-content[id^="tab-prod"]');
+        if (templateType === 'brandList') {
+            // Brand List: only brand columns from form-brandList
+            columns = {
+                brandName: document.getElementById('blBrandName').value,
+                brandLanding: document.getElementById('blBrandLanding').value,
+                brandDisc: document.getElementById('blBrandDisc').value,
+                products: []
+            };
+        } else if (templateType === 'productList') {
+            // Product List: brand name + product columns from form-productList
+            columns = {
+                brandName: document.getElementById('plBrandName').value,
+                brandLanding: '',
+                brandDisc: '',
+                products: [{
+                    code: document.getElementById('plCode').value,
+                    name: document.getElementById('plName').value,
+                    disc: document.getElementById('plDisc').value,
+                    price: document.getElementById('plPrice').value
+                }]
+            };
+        } else {
+            // Default: gather from default form
+            columns = {
+                brandName: els.colBrandName.value,
+                brandLanding: els.colBrandLanding.value,
+                brandDisc: els.colBrandDisc.value,
+                products: []
+            };
 
-        productTabs.forEach(tab => {
-            // Extract ID number from tab ID (tab-prod1 -> 1)
-            // Actually we can just query selectors inside the tab
-            const codeInput = tab.querySelector('textarea[id$="Code"]');
-            const nameInput = tab.querySelector('textarea[id$="Name"]');
-            const discInput = tab.querySelector('textarea[id$="Disc"]');
-            const priceInput = tab.querySelector('textarea[id$="Price"]');
+            // Find all product content divs
+            const productTabs = document.querySelectorAll('#form-default .tab-content[id^="tab-prod"]');
 
-            if (codeInput && nameInput && discInput && priceInput) {
-                columns.products.push({
-                    code: codeInput.value,
-                    name: nameInput.value,
-                    disc: discInput.value,
-                    price: priceInput.value
-                });
-            }
-        });
+            productTabs.forEach(tab => {
+                const codeInput = tab.querySelector('textarea[id$="Code"]');
+                const nameInput = tab.querySelector('textarea[id$="Name"]');
+                const discInput = tab.querySelector('textarea[id$="Disc"]');
+                const priceInput = tab.querySelector('textarea[id$="Price"]');
+
+                if (codeInput && nameInput && discInput && priceInput) {
+                    columns.products.push({
+                        code: codeInput.value,
+                        name: nameInput.value,
+                        disc: discInput.value,
+                        price: priceInput.value
+                    });
+                }
+            });
+        }
 
         if (!template.trim()) {
             alert('HTML 템플릿을 입력해주세요.');
@@ -337,8 +644,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // 2. Generate Code
-            const resultHtml = TemplateEngine.generate(template, parsedData, pattern1, pattern2);
+            // 2. Generate Code (with dynamic label map)
+            const labelMap = getLabelMap();
+            const resultHtml = TemplateEngine.generate(template, parsedData, pattern1, pattern2, labelMap);
 
             // 3. Show Result
             els.outputResult.value = resultHtml;
@@ -386,27 +694,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (listEndIndex === -1) return; // Can't find list to append to
 
+        // Use current label values for placeholders
+        const labelMap = getLabelMap();
+        const brandNameLabel = labelMap.brand.brandName;
+        const prodCodeLabel = labelMap.product.code;
+        const prodNameLabel = labelMap.product.name;
+        const prodDiscLabel = labelMap.product.disc;
+        const prodPriceLabel = labelMap.product.price;
+
         // Ensure clean indentation
         const newBlock = `
 		<!-- 대표상품${num} -->
 		<li>
-			<a href="/product/{{온라인품번}}/detail" class="md_prd_link">
+			<a href="/product/{{${prodCodeLabel}}}/detail" class="md_prd_link">
 				<div class="md_prd_img">
 					<img src="{{이미지경로2}}" alt="">
 				</div>
 				<div class="md_prd_info">
-					<span class="brand">{{브랜드명}}</span>
-					<span class="product">{{상품명}}</span>
+					<span class="brand">{{${brandNameLabel}}}</span>
+					<span class="product">{{${prodNameLabel}}}</span>
 					<div class="md_prd_price">
-						<span class="discount">{{할인율}}</span>
-						<span class="current">{{최종 가격}}</span>
+						<span class="discount">{{${prodDiscLabel}}}</span>
+						<span class="current">{{${prodPriceLabel}}}</span>
 					</div>
 				</div>
 			</a>
 		</li>`;
 
         // Insert before </ul>
-        // Simple approach: Append new block + newline + tab before </ul>
         const beforeEnd = template.slice(0, listEndIndex);
         const afterEnd = template.slice(listEndIndex);
 
@@ -446,10 +761,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleBrandPaste(e) {
-        e.preventDefault();
         const clipboardData = (e.clipboardData || window.clipboardData).getData('text');
-
         if (!clipboardData) return;
+
+        // 탭이 없으면 기본 paste 동작 (해당 textarea에만 입력)
+        if (!clipboardData.includes('\t')) return;
+
+        e.preventDefault();
 
         const rows = clipboardData.split(/\r?\n/).filter(row => row.trim() !== '');
 
@@ -481,5 +799,73 @@ document.addEventListener('DOMContentLoaded', () => {
         els.colBrandName.value = brandNames.join('\n');
         els.colBrandDisc.value = brandDiscs.join('\n');
         els.colBrandLanding.value = brandLandings.join('\n');
+    }
+
+    /**
+     * Smart Paste for Brand List form.
+     * Tab-separated columns: 브랜드명 | 최대할인율 | 브랜드랜딩
+     */
+    function handleBrandListPaste(e) {
+        const clipboardData = (e.clipboardData || window.clipboardData).getData('text');
+        if (!clipboardData) return;
+
+        // 탭이 없으면 기본 paste 동작 (해당 textarea에만 입력)
+        if (!clipboardData.includes('\t')) return;
+
+        e.preventDefault();
+
+        const rows = clipboardData.split(/\r?\n/).filter(row => row.trim() !== '');
+
+        const brandNames = [];
+        const brandDiscs = [];
+        const brandLandings = [];
+
+        rows.forEach(row => {
+            const cols = row.split('\t');
+            if (cols.length >= 1) brandNames.push(cols[0].trim());
+            if (cols.length >= 2) brandDiscs.push(cols[1].trim());
+            if (cols.length >= 3) brandLandings.push(cols[2].trim());
+        });
+
+        document.getElementById('blBrandName').value = brandNames.join('\n');
+        document.getElementById('blBrandDisc').value = brandDiscs.join('\n');
+        document.getElementById('blBrandLanding').value = brandLandings.join('\n');
+    }
+
+    /**
+     * Smart Paste for Product List form.
+     * Tab-separated columns: 브랜드명 | 온라인품번 | 상품명 | 할인율 | 최종가격
+     */
+    function handleProductListPaste(e) {
+        const clipboardData = (e.clipboardData || window.clipboardData).getData('text');
+        if (!clipboardData) return;
+
+        // 탭이 없으면 기본 paste 동작 (해당 textarea에만 입력)
+        if (!clipboardData.includes('\t')) return;
+
+        e.preventDefault();
+
+        const rows = clipboardData.split(/\r?\n/).filter(row => row.trim() !== '');
+
+        const brandNames = [];
+        const codes = [];
+        const names = [];
+        const prices = [];
+        const discs = [];
+
+        rows.forEach(row => {
+            const cols = row.split('\t');
+            if (cols.length >= 1) brandNames.push(cols[0].trim());
+            if (cols.length >= 2) codes.push(cols[1].trim());
+            if (cols.length >= 3) names.push(cols[2].trim());
+            if (cols.length >= 4) discs.push(cols[3].trim());
+            if (cols.length >= 5) prices.push(cols[4].trim());
+        });
+
+        document.getElementById('plBrandName').value = brandNames.join('\n');
+        document.getElementById('plCode').value = codes.join('\n');
+        document.getElementById('plName').value = names.join('\n');
+        document.getElementById('plDisc').value = discs.join('\n');
+        document.getElementById('plPrice').value = prices.join('\n');
     }
 });

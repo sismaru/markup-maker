@@ -1,6 +1,7 @@
 /**
  * template.js
  * Handles replacing placeholders in the HTML template with parsed data.
+ * Placeholders are now dynamic: driven by user-editable label names.
  */
 
 const TemplateEngine = {
@@ -10,9 +11,10 @@ const TemplateEngine = {
      * @param {Array} data - Array of Brand objects parsed from Excel.
      * @param {string} pattern1 - Image path pattern 1 (Brand).
      * @param {string} pattern2 - Image path pattern 2 (Product).
+     * @param {Object} labelMap - Dynamic label mapping from editable labels.
      * @returns {string} The generated HTML.
      */
-    generate: function (template, data, pattern1, pattern2) {
+    generate: function (template, data, pattern1, pattern2, labelMap) {
         let finalOutput = '';
 
         // 1. Identify the Loop Block for Products
@@ -34,12 +36,16 @@ const TemplateEngine = {
             loopPart = template.substring(startIndex + loopStartTag.length, endIndex);
             footerPart = template.substring(endIndex + loopEndTag.length);
         } else {
-            // Implicit Loop Detection
-            const placeholder = '{{상품명}}';
-            const count = (template.match(new RegExp(placeholder, 'g')) || []).length;
+            // Implicit Loop Detection using dynamic product name label
+            const prodNameLabel = labelMap.product.name || '상품명';
+            const placeholder = `{{${prodNameLabel}}}`;
+            const count = (template.match(new RegExp(this.escapeRegex(placeholder), 'g')) || []).length;
 
             if (count === 1) {
-                const match = template.match(/(\s*<li\b[^>]*>[\s\S]*?{{(?:상품명|온라인품번)}}[\s\S]*?<\/li>\s*)/i);
+                const prodCodeLabel = labelMap.product.code || '온라인품번';
+                const escapedName = this.escapeRegex(`{{${prodNameLabel}}}`);
+                const escapedCode = this.escapeRegex(`{{${prodCodeLabel}}}`);
+                const match = template.match(new RegExp(`(\\s*<li\\b[^>]*>[\\s\\S]*?(?:${escapedName}|${escapedCode})[\\s\\S]*?<\\/li>\\s*)`, 'i'));
 
                 if (match) {
                     hasLoop = true;
@@ -58,17 +64,19 @@ const TemplateEngine = {
 
             if (hasLoop) {
                 // Process Header (Brand Level)
-                let currentHeader = this.replaceBrandPlaceholders(headerPart, brand, pattern1, pattern2);
+                let currentHeader = this.replaceBrandPlaceholders(headerPart, brand, pattern1, pattern2, labelMap);
 
                 // Process Loop (Product Level)
                 let currentLoop = '';
                 brand.products.forEach((product, prodIndex) => {
-                    let productHtml = this.replaceProductPlaceholders(loopPart, product, brand, pattern1, pattern2);
+                    // Apply brand-level replacements first (brand placeholders can appear in loop)
+                    let productHtml = this.replaceBrandPlaceholders(loopPart, brand, pattern1, pattern2, labelMap);
+                    productHtml = this.replaceProductPlaceholders(productHtml, product, brand, pattern1, pattern2, labelMap);
                     currentLoop += productHtml;
                 });
 
                 // Process Footer (Brand Level)
-                let currentFooter = this.replaceBrandPlaceholders(footerPart, brand, pattern1, pattern2);
+                let currentFooter = this.replaceBrandPlaceholders(footerPart, brand, pattern1, pattern2, labelMap);
 
                 brandHtml = currentHeader + currentLoop + currentFooter;
             } else {
@@ -76,17 +84,17 @@ const TemplateEngine = {
                 let tempHtml = template;
 
                 // 1. Replace Brand Info (Global)
-                tempHtml = this.replaceBrandPlaceholders(tempHtml, brand, pattern1, pattern2);
+                tempHtml = this.replaceBrandPlaceholders(tempHtml, brand, pattern1, pattern2, labelMap);
 
                 // 2. Replace Numbered Products first
                 brand.products.forEach((product, i) => {
                     const suffix = i + 1;
-                    tempHtml = this.replaceProductPlaceholders(tempHtml, product, brand, pattern1, pattern2, suffix);
+                    tempHtml = this.replaceProductPlaceholders(tempHtml, product, brand, pattern1, pattern2, labelMap, suffix);
                 });
 
                 // 3. Replace Generic Placeholders Sequentially
                 brand.products.forEach((product) => {
-                    tempHtml = this.replaceGenericProductPlaceholdersOnce(tempHtml, product, brand, pattern1, pattern2);
+                    tempHtml = this.replaceGenericProductPlaceholdersOnce(tempHtml, product, brand, pattern1, pattern2, labelMap);
                 });
 
                 brandHtml = tempHtml;
@@ -98,20 +106,19 @@ const TemplateEngine = {
         return finalOutput.trim();
     },
 
-    replaceBrandPlaceholders: function (text, brand, pattern1, pattern2) {
+    replaceBrandPlaceholders: function (text, brand, pattern1, pattern2, labelMap) {
         let result = text;
 
-        // Basic Brand Info
-        result = result.replace(/{{브랜드명}}/g, brand.name);
-        result = result.replace(/{{브랜드랜딩}}/g, brand.landingUrl);
-        result = result.replace(/{{최대할인율}}/g, brand.maxDiscount);
+        // Dynamic Brand Labels
+        const brandNameLabel = labelMap.brand.brandName || '브랜드명';
+        const brandLandingLabel = labelMap.brand.brandLanding || '브랜드랜딩';
+        const brandDiscLabel = labelMap.brand.brandDisc || '최대할인율';
+
+        result = result.replace(new RegExp(this.escapeRegex(`{{${brandNameLabel}}}`), 'g'), brand.name);
+        result = result.replace(new RegExp(this.escapeRegex(`{{${brandLandingLabel}}}`), 'g'), brand.landingUrl);
+        result = result.replace(new RegExp(this.escapeRegex(`{{${brandDiscLabel}}}`), 'g'), brand.maxDiscount);
 
         const brandIdStr = String(brand.id).padStart(2, '0');
-
-        // Generate Paths
-        // {U1} = Brand ID
-        // {U2} = Product ID (Not applicable in Brand context, default to 00)
-        // Legacy support: {U} = Brand ID in Brand context
 
         const replacePatterns = (pattern) => {
             return pattern
@@ -135,56 +142,55 @@ const TemplateEngine = {
         return result;
     },
 
-    replaceProductPlaceholders: function (text, product, brand, pattern1, pattern2, suffix = '') {
-        if (!suffix && !text.includes('{{상품명}}') && !text.includes('{{온라인품번}}')) return text;
-
+    replaceProductPlaceholders: function (text, product, brand, pattern1, pattern2, labelMap, suffix = '') {
         let result = text;
         const s = suffix;
 
-        result = result.replace(new RegExp(`{{상품명${s}}}`, 'g'), product.name);
-        result = result.replace(new RegExp(`{{온라인품번${s}}}`, 'g'), product.code);
-        result = result.replace(new RegExp(`{{최종가격${s}}}`, 'g'), product.price);
-        result = result.replace(new RegExp(`{{최종 가격${s}}}`, 'g'), product.price);
-        result = result.replace(new RegExp(`{{할인율${s}}}`, 'g'), product.discount);
+        // Dynamic Product Labels
+        const prodNameLabel = labelMap.product.name || '상품명';
+        const prodCodeLabel = labelMap.product.code || '온라인품번';
+        const prodDiscLabel = labelMap.product.disc || '할인율';
+        const prodPriceLabel = labelMap.product.price || '최종 가격';
+
+        if (!suffix && !result.includes(`{{${prodNameLabel}}}`) && !result.includes(`{{${prodCodeLabel}}}`)) return text;
+
+        result = result.replace(new RegExp(this.escapeRegex(`{{${prodNameLabel}${s}}}`), 'g'), product.name);
+        result = result.replace(new RegExp(this.escapeRegex(`{{${prodCodeLabel}${s}}}`), 'g'), product.code);
+        result = result.replace(new RegExp(this.escapeRegex(`{{${prodPriceLabel}${s}}}`), 'g'), product.price);
+        result = result.replace(new RegExp(this.escapeRegex(`{{${prodDiscLabel}${s}}}`), 'g'), product.discount);
 
         const brandIdStr = String(brand.id).padStart(2, '0');
         const prodIdStr = String(product.id).padStart(2, '0');
-
-        // Generate Paths
-        // {U1} = Brand ID
-        // {U2} = Product ID
-        // Legacy: {U} = Product ID in Product context
 
         const replacePatterns = (pattern) => {
             return pattern
                 .replace(/{U1}/g, brandIdStr)
                 .replace(/{b}/g, brandIdStr)
                 .replace(/{U2}/g, prodIdStr)
-                .replace(/{U}/g, prodIdStr) // Legacy: In product context, U was product ID
+                .replace(/{U}/g, prodIdStr) // Legacy
                 .replace(/{p}/g, prodIdStr);
         };
 
         let path1 = replacePatterns(pattern1);
         let path2 = replacePatterns(pattern2);
 
-        result = result.replace(new RegExp(`{{이미지경로1${s}}}`, 'g'), path1);
-        result = result.replace(new RegExp(`{{브랜드이미지경로${s}}}`, 'g'), path1);
+        result = result.replace(new RegExp(this.escapeRegex(`{{이미지경로1${s}}}`), 'g'), path1);
+        result = result.replace(new RegExp(this.escapeRegex(`{{브랜드이미지경로${s}}}`), 'g'), path1);
 
-        result = result.replace(new RegExp(`{{이미지경로2${s}}}`, 'g'), path2);
-        result = result.replace(new RegExp(`{{상품이미지경로${s}}}`, 'g'), path2);
+        result = result.replace(new RegExp(this.escapeRegex(`{{이미지경로2${s}}}`), 'g'), path2);
+        result = result.replace(new RegExp(this.escapeRegex(`{{상품이미지경로${s}}}`), 'g'), path2);
 
         if (suffix) {
             const target = `{{이미지경로${s}}}`;
-            // Prevent overwriting reserved generic placeholders
             if (target !== '{{이미지경로1}}' && target !== '{{이미지경로2}}') {
-                result = result.replace(new RegExp(target, 'g'), path2);
+                result = result.replace(new RegExp(this.escapeRegex(target), 'g'), path2);
             }
         }
 
         return result;
     },
 
-    replaceGenericProductPlaceholdersOnce: function (text, product, brand, pattern1, pattern2) {
+    replaceGenericProductPlaceholdersOnce: function (text, product, brand, pattern1, pattern2, labelMap) {
         let result = text;
 
         const brandIdStr = String(brand.id).padStart(2, '0');
@@ -201,19 +207,31 @@ const TemplateEngine = {
 
         let path2 = replacePatterns(pattern2);
 
+        // Dynamic Product Labels
+        const prodNameLabel = labelMap.product.name || '상품명';
+        const prodCodeLabel = labelMap.product.code || '온라인품번';
+        const prodDiscLabel = labelMap.product.disc || '할인율';
+        const prodPriceLabel = labelMap.product.price || '최종 가격';
+
         const replaceFirst = (str, search, replacement) => {
             return str.replace(search, replacement);
         };
 
-        result = replaceFirst(result, '{{상품명}}', product.name);
-        result = replaceFirst(result, '{{온라인품번}}', product.code);
-        result = replaceFirst(result, '{{최종가격}}', product.price);
-        result = replaceFirst(result, '{{최종 가격}}', product.price);
-        result = replaceFirst(result, '{{할인율}}', product.discount);
+        result = replaceFirst(result, `{{${prodNameLabel}}}`, product.name);
+        result = replaceFirst(result, `{{${prodCodeLabel}}}`, product.code);
+        result = replaceFirst(result, `{{${prodPriceLabel}}}`, product.price);
+        result = replaceFirst(result, `{{${prodDiscLabel}}}`, product.discount);
 
         result = replaceFirst(result, '{{이미지경로2}}', path2);
         result = replaceFirst(result, '{{상품이미지경로}}', path2);
 
         return result;
+    },
+
+    /**
+     * Escapes special regex characters in a string.
+     */
+    escapeRegex: function (str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 };
