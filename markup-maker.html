@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Markup Maker - Excel to HTML Converter</title>
-    <link rel="stylesheet" href="css/style.css?v=2">
+    <link rel="stylesheet" href="css/style.css?v=5">
 </head>
 
 <body>
@@ -18,12 +18,12 @@
 
             <div class="settings-area">
                 <div class="input-group">
-                    <label>이미지 경로 1 (브랜드)</label>
+                    <label>이미지경로1</label>
                     <input type="text" id="imagePattern1" placeholder="...brd{U1}.jpg"
                         value="../resource/20260119/pc_event_brd{U1}.jpg">
                 </div>
                 <div class="input-group">
-                    <label>이미지 경로 2 (상품)</label>
+                    <label>이미지경로2</label>
                     <input type="text" id="imagePattern2" placeholder="...brd{U1}_prd{U2}.jpg"
                         value="../resource/20260119/pc_event_brd{U1}_prd{U2}.jpg">
                 </div>
@@ -38,44 +38,76 @@
 
         <!-- Main Content: Split View -->
         <main class="split-view">
-            <!-- Left Panel: Template Editor -->
+            <!-- Left Panel: Template Editor & Excel Parser -->
             <section class="panel left-panel">
-                <div class="panel-header">
-                    <h2>HTML Template</h2>
-                    <div class="template-selector">
-                        <label><input type="radio" name="templateType" value="default" checked> 기본 (Default)</label>
-                        <label><input type="radio" name="templateType" value="brandList"> 브랜드 리스트 (Brand List)</label>
-                        <label><input type="radio" name="templateType" value="productList"> 상품 리스트 (Product
-                            List)</label>
+                <div class="template-editor-section">
+                    <div class="panel-header">
+                        <h2>HTML Template</h2>
+                        <div class="template-selector-container" id="templateSelector">
+                            <div class="template-list-scroll">
+                                <label class="custom-template-label"><input type="radio" name="templateType" value="default" checked> 기본 (Default)</label>
+                                <span id="customTemplatesList" class="custom-templates-list"></span>
+                            </div>
+                            <button type="button" id="btnAddTemplate" class="btn-add-template" title="새 템플릿 추가">+</button>
+                        </div>
                     </div>
-                </div>
-                <div class="editor-container">
-                    <textarea id="templateInput" placeholder="여기에 HTML 템플릿을 입력하세요."><!-- 브랜드 01부터 오름차순 -->
+                    <div class="editor-container">
+                        <textarea id="templateInput" placeholder="여기에 HTML 템플릿을 입력하세요."><!-- 브랜드 01부터 오름차순 -->
 <div class="swiper-slide">
 	<div class="md_brandSet_img">
 		<img src="{{이미지경로1}}" alt="">
-		<a href="{{브랜드랜딩}}" class="md_brandPrd_link">BRAND SHOP</a>
+		<a href="{{data_2}}" class="md_brandPrd_link">BRAND SHOP</a>
 	</div>
 	<!-- 대표상품 -->
 	<ul class="md_prdList">
 		<!-- 대표상품1 -->
 		<li>
-			<a href="/product/{{온라인품번}}/detail" class="md_prd_link">
+			<a href="/product/{{data_4}}/detail" class="md_prd_link">
 				<div class="md_prd_img">
 					<img src="{{이미지경로2}}" alt="">
 				</div>
 				<div class="md_prd_info">
-					<span class="brand">{{브랜드명}}</span>
-					<span class="product">{{상품명}}</span>
+					<span class="brand">{{data_1}}</span>
+					<span class="product">{{data_5}}</span>
 					<div class="md_prd_price">
-						<span class="discount">{{할인율}}</span>
-						<span class="current">{{최종 가격}}</span>
+						<span class="discount">{{data_6}}</span>
+						<span class="current">{{data_7}}</span>
 					</div>
 				</div>
 			</a>
 		</li>
 	</ul>
 </div></textarea>
+                    </div>
+                    <div class="template-save-control">
+                        <span>커스텀 템플릿 저장:</span>
+                        <select id="saveTemplateTarget">
+                            <option value="" disabled selected>추가된 커스텀 템플릿 없음</option>
+                        </select>
+                        <button type="button" id="btnSaveTemplate" class="btn btn-primary" disabled>저장하기</button>
+                    </div>
+                </div>
+
+                <div class="excel-parser-section">
+                    <div class="panel-header parser-header">
+                        <h2>행 Data 정리</h2>
+                        <div class="parser-mode-selectors">
+                            <label for="patternPeriod">몇열? :</label>
+                            <input type="number" id="patternPeriod" value="3" min="1" max="20" style="width: 50px; text-align: center;">
+                        </div>
+                    </div>
+                    <div class="parser-container">
+                        <div class="parser-input-wrapper">
+                            <textarea id="excelGridInput" placeholder="여기에 엑셀 격자 데이터를 복사해서 붙여넣으세요. (예: 1위 브랜드 상품 품번이 포함된 표 데이터 전체 복사)"></textarea>
+                        </div>
+                        <div id="parserOutputContainer" class="parser-output-container hidden">
+                            <div class="parser-output-header">
+                                <span>정리된 데이터 결과</span>
+                                <button id="btnParserClear">지우기</button>
+                            </div>
+                            <div id="parserResultsList" class="parser-results-list"></div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -100,27 +132,27 @@
                         <div id="tab-brand" class="tab-content active">
                             <div class="col-group">
                                 <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="brandName" data-prev="브랜드명"
-                                        value="브랜드명">
+                                    <input type="text" class="editable-label" data-field="brandName" data-prev="data_1"
+                                        value="data_1">
                                     <button class="btn-save-label" title="저장">저장</button>
                                 </div>
-                                <textarea id="colBrandName" placeholder="브랜드명 열 붙여넣기"></textarea>
+                                <textarea id="colBrandName" placeholder="data_1 열 붙여넣기"></textarea>
                             </div>
                             <div class="col-group">
                                 <div class="label-group">
                                     <input type="text" class="editable-label" data-field="brandLanding"
-                                        data-prev="브랜드랜딩" value="브랜드랜딩">
+                                        data-prev="data_2" value="data_2">
                                     <button class="btn-save-label" title="저장">저장</button>
                                 </div>
-                                <textarea id="colBrandLanding" placeholder="랜딩 URL 열 붙여넣기"></textarea>
+                                <textarea id="colBrandLanding" placeholder="data_2 열 붙여넣기"></textarea>
                             </div>
                             <div class="col-group">
                                 <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="brandDisc" data-prev="최대할인율"
-                                        value="최대할인율">
+                                    <input type="text" class="editable-label" data-field="brandDisc" data-prev="data_3"
+                                        value="data_3">
                                     <button class="btn-save-label" title="저장">저장</button>
                                 </div>
-                                <textarea id="colBrandDisc" placeholder="최대 할인율 열 붙여넣기"></textarea>
+                                <textarea id="colBrandDisc" placeholder="data_3 열 붙여넣기"></textarea>
                             </div>
                         </div>
 
@@ -128,120 +160,45 @@
                         <div id="tab-prod1" class="tab-content">
                             <div class="col-group">
                                 <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="code" data-prev="온라인품번"
-                                        value="온라인품번">
+                                    <input type="text" class="editable-label" data-field="code" data-prev="data_4"
+                                        value="data_4">
                                     <button class="btn-save-label" title="저장">저장</button>
                                 </div>
-                                <textarea id="colP1Code" placeholder="품번 열 붙여넣기"></textarea>
+                                <textarea id="colP1Code" placeholder="data_4 열 붙여넣기"></textarea>
                             </div>
                             <div class="col-group">
                                 <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="name" data-prev="상품명"
-                                        value="상품명">
+                                    <input type="text" class="editable-label" data-field="name" data-prev="data_5"
+                                        value="data_5">
                                     <button class="btn-save-label" title="저장">저장</button>
                                 </div>
-                                <textarea id="colP1Name" placeholder="상품명 열 붙여넣기"></textarea>
+                                <textarea id="colP1Name" placeholder="data_5 열 붙여넣기"></textarea>
                             </div>
                             <div class="col-group">
                                 <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="disc" data-prev="할인율"
-                                        value="할인율">
+                                    <input type="text" class="editable-label" data-field="disc" data-prev="data_6"
+                                        value="data_6">
                                     <button class="btn-save-label" title="저장">저장</button>
                                 </div>
-                                <textarea id="colP1Disc" placeholder="할인율 열 붙여넣기"></textarea>
+                                <textarea id="colP1Disc" placeholder="data_6 열 붙여넣기"></textarea>
                             </div>
                             <div class="col-group">
                                 <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="price" data-prev="최종 가격"
-                                        value="최종 가격">
+                                    <input type="text" class="editable-label" data-field="price" data-prev="data_7"
+                                        value="data_7">
                                     <button class="btn-save-label" title="저장">저장</button>
                                 </div>
-                                <textarea id="colP1Price" placeholder="가격 열 붙여넣기"></textarea>
+                                <textarea id="colP1Price" placeholder="data_7 열 붙여넣기"></textarea>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- ========== Brand List Form (브랜드 리스트 전용) ========== -->
-                <div id="form-brandList" class="form-section hidden">
-                    <div class="editor-container column-inputs">
-                        <div class="tab-content active">
-                            <div class="col-group">
-                                <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="brandName" data-prev="브랜드명"
-                                        value="브랜드명">
-                                    <button class="btn-save-label" title="저장">저장</button>
-                                </div>
-                                <textarea id="blBrandName" placeholder="브랜드명 열 붙여넣기"></textarea>
-                            </div>
-                            <div class="col-group">
-                                <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="brandLanding"
-                                        data-prev="브랜드랜딩" value="브랜드랜딩">
-                                    <button class="btn-save-label" title="저장">저장</button>
-                                </div>
-                                <textarea id="blBrandLanding" placeholder="랜딩 URL 열 붙여넣기"></textarea>
-                            </div>
-                            <div class="col-group">
-                                <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="brandDisc" data-prev="최대할인율"
-                                        value="최대할인율">
-                                    <button class="btn-save-label" title="저장">저장</button>
-                                </div>
-                                <textarea id="blBrandDisc" placeholder="최대 할인율 열 붙여넣기"></textarea>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- Custom Template Columns Form (dynamically rendered by JS) -->
+                <div id="customColumnsContainer" class="custom-columns-form hidden"></div>
 
-                <!-- ========== Product List Form (상품 리스트 전용) ========== -->
-                <div id="form-productList" class="form-section hidden">
-                    <div class="editor-container column-inputs">
-                        <div class="tab-content active">
-                            <div class="col-group">
-                                <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="brandName" data-prev="브랜드명"
-                                        value="브랜드명">
-                                    <button class="btn-save-label" title="저장">저장</button>
-                                </div>
-                                <textarea id="plBrandName" placeholder="브랜드명 열 붙여넣기"></textarea>
-                            </div>
-                            <div class="col-group">
-                                <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="code" data-prev="온라인품번"
-                                        value="온라인품번">
-                                    <button class="btn-save-label" title="저장">저장</button>
-                                </div>
-                                <textarea id="plCode" placeholder="온라인품번 열 붙여넣기"></textarea>
-                            </div>
-                            <div class="col-group">
-                                <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="name" data-prev="상품명"
-                                        value="상품명">
-                                    <button class="btn-save-label" title="저장">저장</button>
-                                </div>
-                                <textarea id="plName" placeholder="상품명 열 붙여넣기"></textarea>
-                            </div>
-                            <div class="col-group">
-                                <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="disc" data-prev="할인율"
-                                        value="할인율">
-                                    <button class="btn-save-label" title="저장">저장</button>
-                                </div>
-                                <textarea id="plDisc" placeholder="할인율 열 붙여넣기"></textarea>
-                            </div>
-                            <div class="col-group">
-                                <div class="label-group">
-                                    <input type="text" class="editable-label" data-field="price" data-prev="최종가격"
-                                        value="최종가격">
-                                    <button class="btn-save-label" title="저장">저장</button>
-                                </div>
-                                <textarea id="plPrice" placeholder="최종가격 열 붙여넣기"></textarea>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </section>
+
         </main>
 
         <!-- Output Modal (Hidden by default) -->
@@ -260,10 +217,34 @@
         </div>
     </div>
 
-    <script src="js/storage.js"></script>
+    <!-- Custom Template Name Dialog -->
+    <div id="templateNameDialog" class="tpl-dialog-overlay hidden">
+        <div class="tpl-dialog">
+            <div class="tpl-dialog-header">
+                <h3>새 커스텀 템플릿 추가</h3>
+            </div>
+            <div class="tpl-dialog-body">
+                <label for="templateNameInput">템플릿 이름</label>
+                <input type="text" id="templateNameInput" placeholder="예: 브랜드 슬라이더, 상품 리스트..." autocomplete="off">
+                <label>데이터 컬럼 수</label>
+                <div class="tpl-col-count-row">
+                    <button type="button" id="btnColCountMinus" class="btn-col-count">−</button>
+                    <input type="number" id="templateColumnCount" value="3" min="1" max="20">
+                    <button type="button" id="btnColCountPlus" class="btn-col-count">+</button>
+                    <span class="tpl-col-count-hint">개의 data_N 입력란</span>
+                </div>
+            </div>
+            <div class="tpl-dialog-footer">
+                <button type="button" id="btnTemplateNameCancel" class="btn btn-secondary">취소</button>
+                <button type="button" id="btnTemplateNameConfirm" class="btn btn-primary">추가</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/storage.js?v=2"></script>
     <script src="js/parser.js"></script>
     <script src="js/template.js"></script>
-    <script src="js/app.js?v=3"></script>
+    <script src="js/app.js?v=8"></script>
 </body>
 
 </html>

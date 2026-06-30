@@ -37,12 +37,12 @@ const TemplateEngine = {
             footerPart = template.substring(endIndex + loopEndTag.length);
         } else {
             // Implicit Loop Detection using dynamic product name label
-            const prodNameLabel = labelMap.product.name || 'data_5';
+            const prodNameLabel = labelMap.product.name || '상품명';
             const placeholder = `{{${prodNameLabel}}}`;
             const count = (template.match(new RegExp(this.escapeRegex(placeholder), 'g')) || []).length;
 
             if (count === 1) {
-                const prodCodeLabel = labelMap.product.code || 'data_4';
+                const prodCodeLabel = labelMap.product.code || '온라인품번';
                 const escapedName = this.escapeRegex(`{{${prodNameLabel}}}`);
                 const escapedCode = this.escapeRegex(`{{${prodCodeLabel}}}`);
                 const match = template.match(new RegExp(`(\\s*<li\\b[^>]*>[\\s\\S]*?(?:${escapedName}|${escapedCode})[\\s\\S]*?<\\/li>\\s*)`, 'i'));
@@ -110,9 +110,9 @@ const TemplateEngine = {
         let result = text;
 
         // Dynamic Brand Labels
-        const brandNameLabel = labelMap.brand.brandName || 'data_1';
-        const brandLandingLabel = labelMap.brand.brandLanding || 'data_2';
-        const brandDiscLabel = labelMap.brand.brandDisc || 'data_3';
+        const brandNameLabel = labelMap.brand.brandName || '브랜드명';
+        const brandLandingLabel = labelMap.brand.brandLanding || '브랜드랜딩';
+        const brandDiscLabel = labelMap.brand.brandDisc || '최대할인율';
 
         result = result.replace(new RegExp(this.escapeRegex(`{{${brandNameLabel}}}`), 'g'), brand.name);
         result = result.replace(new RegExp(this.escapeRegex(`{{${brandLandingLabel}}}`), 'g'), brand.landingUrl);
@@ -147,10 +147,10 @@ const TemplateEngine = {
         const s = suffix;
 
         // Dynamic Product Labels
-        const prodNameLabel = labelMap.product.name || 'data_5';
-        const prodCodeLabel = labelMap.product.code || 'data_4';
-        const prodDiscLabel = labelMap.product.disc || 'data_6';
-        const prodPriceLabel = labelMap.product.price || 'data_7';
+        const prodNameLabel = labelMap.product.name || '상품명';
+        const prodCodeLabel = labelMap.product.code || '온라인품번';
+        const prodDiscLabel = labelMap.product.disc || '할인율';
+        const prodPriceLabel = labelMap.product.price || '최종 가격';
 
         if (!suffix && !result.includes(`{{${prodNameLabel}}}`) && !result.includes(`{{${prodCodeLabel}}}`)) return text;
 
@@ -208,10 +208,10 @@ const TemplateEngine = {
         let path2 = replacePatterns(pattern2);
 
         // Dynamic Product Labels
-        const prodNameLabel = labelMap.product.name || 'data_5';
-        const prodCodeLabel = labelMap.product.code || 'data_4';
-        const prodDiscLabel = labelMap.product.disc || 'data_6';
-        const prodPriceLabel = labelMap.product.price || 'data_7';
+        const prodNameLabel = labelMap.product.name || '상품명';
+        const prodCodeLabel = labelMap.product.code || '온라인품번';
+        const prodDiscLabel = labelMap.product.disc || '할인율';
+        const prodPriceLabel = labelMap.product.price || '최종 가격';
 
         const replaceFirst = (str, search, replacement) => {
             return str.replace(search, replacement);

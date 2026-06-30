@@ -79,6 +79,8 @@ const Parser = {
     /**
      * Parses a single string of Excel-pasted column data.
      * Handles quoted values with newlines correctly.
+     * Interior empty lines are preserved to maintain row alignment
+     * (e.g. when a cell in the middle has no value).
      * @param {string} text 
      * @returns {Array<string>}
      */
@@ -91,14 +93,114 @@ const Parser = {
         // 1. Remove all quotes
         const noQuotes = normalized.replace(/"/g, '');
 
-        // 2. Split by newline
-        const lines = noQuotes.split('\n');
+        // 2. Split by newline and trim each line
+        const lines = noQuotes.split('\n').map(line => line.replace(/\s+/g, ' ').trim());
 
-        // 3. Process lines
-        const result = lines
-            .map(line => line.replace(/\s+/g, ' ').trim()) // Collapse spaces & trim
-            .filter(line => line.length > 0); // Remove empty lines
+        // 3. Trim leading and trailing empty lines only.
+        //    Interior empty lines are kept so that empty cells (e.g. a missing
+        //    percentage value) stay in the correct position relative to other columns.
+        let start = 0;
+        let end = lines.length - 1;
+        while (start <= end && lines[start] === '') start++;
+        while (end >= start && lines[end] === '') end--;
 
-        return result;
+        return lines.slice(start, end + 1);
+    },
+
+    /**
+     * Parses TSV text correctly, respecting double quotes and newlines.
+     * @param {string} text 
+     * @returns {Array<Array<string>>} 2D array of grid cells.
+     */
+    parseTSV: function(text) {
+        if (!text) return [];
+        const rows = [];
+        let currentRow = [];
+        let currentCell = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            const nextChar = text[i + 1];
+
+            if (inQuotes) {
+                if (char === '"') {
+                    if (nextChar === '"') {
+                        currentCell += '"';
+                        i++; // skip next quote
+                    } else {
+                        inQuotes = false;
+                    }
+                } else {
+                    currentCell += char;
+                }
+            } else {
+                if (char === '"') {
+                    inQuotes = true;
+                } else if (char === '\t') {
+                    currentRow.push(currentCell.trim());
+                    currentCell = '';
+                } else if (char === '\r') {
+                    if (nextChar === '\n') {
+                        i++;
+                    }
+                    currentRow.push(currentCell.trim());
+                    rows.push(currentRow);
+                    currentRow = [];
+                    currentCell = '';
+                } else if (char === '\n') {
+                    currentRow.push(currentCell.trim());
+                    rows.push(currentRow);
+                    currentRow = [];
+                    currentCell = '';
+                } else {
+                    currentCell += char;
+                }
+            }
+        }
+
+        if (currentCell || currentRow.length > 0) {
+            currentRow.push(currentCell.trim());
+            rows.push(currentRow);
+        }
+
+        // Filter out empty rows
+        return rows.filter(row => row.some(cell => cell !== ''));
+    },
+
+    /**
+     * Parses a multi-row, multi-column grid from Excel.
+     * @param {string} text - Raw tab-separated Excel grid.
+     * @param {string} mode - 'label' or 'pattern' (ignored now)
+     * @param {number} period - Repeating pattern period (e.g. 3)
+     * @returns {Array<Object>} Array of groups: { name, key, values }
+     */
+    parseGrid: function(text, mode, period) {
+        if (!text || !text.trim()) return [];
+
+        const activeRows = this.parseTSV(text);
+        if (activeRows.length === 0) return [];
+
+        const groups = [];
+        for (let i = 0; i < period; i++) {
+            groups.push({
+                name: `${i + 1}번째 열 데이터`,
+                key: `column_${i}`,
+                values: []
+            });
+        }
+
+        activeRows.forEach((row, rowIndex) => {
+            const groupIdx = rowIndex % period;
+            row.forEach(cell => {
+                if (cell !== undefined && cell !== null && cell !== '') {
+                    groups[groupIdx].values.push(cell);
+                }
+            });
+        });
+
+        // Filter out empty groups
+        return groups.filter(g => g.values.length > 0);
     }
 };
+

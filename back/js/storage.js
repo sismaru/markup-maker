@@ -8,27 +8,7 @@ const StorageManager = {
         HISTORY: 'markup_maker_history',
         LAST_TEMPLATE: 'markup_maker_last_template',
         LAST_PATTERN1: 'markup_maker_last_pattern1',
-        LAST_PATTERN2: 'markup_maker_last_pattern2',
-        CUSTOM_TEMPLATES: 'markup_maker_custom_templates',
-        TEMPLATE_DATA_CACHE: 'markup_maker_template_data_cache'
-    },
-
-    getCustomTemplates: function () {
-        const json = localStorage.getItem(this.KEYS.CUSTOM_TEMPLATES);
-        return json ? JSON.parse(json) : [];
-    },
-
-    saveCustomTemplates: function (templates) {
-        localStorage.setItem(this.KEYS.CUSTOM_TEMPLATES, JSON.stringify(templates));
-    },
-
-    getTemplateDataCache: function () {
-        const json = localStorage.getItem(this.KEYS.TEMPLATE_DATA_CACHE);
-        return json ? JSON.parse(json) : {};
-    },
-
-    saveTemplateDataCache: function (cache) {
-        localStorage.setItem(this.KEYS.TEMPLATE_DATA_CACHE, JSON.stringify(cache));
+        LAST_PATTERN2: 'markup_maker_last_pattern2'
     },
 
     saveSettings: function (template, pattern1, pattern2) {
