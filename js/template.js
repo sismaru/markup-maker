@@ -121,12 +121,13 @@ const TemplateEngine = {
         const brandIdStr = String(brand.id).padStart(2, '0');
 
         const replacePatterns = (pattern) => {
+            if (!pattern) return '';
             return pattern
-                .replace(/{U1}/g, brandIdStr)
-                .replace(/{U}/g, brandIdStr) // Legacy
-                .replace(/{b}/g, brandIdStr) // Legacy
-                .replace(/{U2}/g, '00')
-                .replace(/{p}/g, '00');
+                .replace(/{U1}/gi, brandIdStr)
+                .replace(/{U}/gi, brandIdStr) // Legacy
+                .replace(/{b}/gi, brandIdStr) // Legacy
+                .replace(/{U2}/gi, '00')
+                .replace(/{p}/gi, '00');
         };
 
         let path1 = replacePatterns(pattern1);
@@ -136,8 +137,10 @@ const TemplateEngine = {
         result = result.replace(/{{브랜드이미지경로}}/g, path1);
         result = result.replace(/{{이미지경로}}/g, path1);
 
-        // Replace Brand Comment
+        // Replace Brand Comment & Direct {U1}
+        result = result.replace(/<!-- 브랜드 \d+부터 오름차순 -->/g, `<!-- 브랜드 ${brandIdStr} -->`);
         result = result.replace(/<!-- 브랜드 01부터 오름차순 -->/g, `<!-- 브랜드 ${brandIdStr} -->`);
+        result = result.replace(/{U1}/gi, brandIdStr);
 
         return result;
     },
@@ -163,12 +166,13 @@ const TemplateEngine = {
         const prodIdStr = String(product.id).padStart(2, '0');
 
         const replacePatterns = (pattern) => {
+            if (!pattern) return '';
             return pattern
-                .replace(/{U1}/g, brandIdStr)
-                .replace(/{b}/g, brandIdStr)
-                .replace(/{U2}/g, prodIdStr)
-                .replace(/{U}/g, prodIdStr) // Legacy
-                .replace(/{p}/g, prodIdStr);
+                .replace(/{U1}/gi, brandIdStr)
+                .replace(/{b}/gi, brandIdStr)
+                .replace(/{U2}/gi, prodIdStr)
+                .replace(/{U}/gi, prodIdStr) // Legacy
+                .replace(/{p}/gi, prodIdStr);
         };
 
         let path1 = replacePatterns(pattern1);
@@ -197,12 +201,13 @@ const TemplateEngine = {
         const prodIdStr = String(product.id).padStart(2, '0');
 
         const replacePatterns = (pattern) => {
+            if (!pattern) return '';
             return pattern
-                .replace(/{U1}/g, brandIdStr)
-                .replace(/{b}/g, brandIdStr)
-                .replace(/{U2}/g, prodIdStr)
-                .replace(/{U}/g, prodIdStr)
-                .replace(/{p}/g, prodIdStr);
+                .replace(/{U1}/gi, brandIdStr)
+                .replace(/{b}/gi, brandIdStr)
+                .replace(/{U2}/gi, prodIdStr)
+                .replace(/{U}/gi, prodIdStr)
+                .replace(/{p}/gi, prodIdStr);
         };
 
         let path2 = replacePatterns(pattern2);

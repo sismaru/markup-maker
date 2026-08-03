@@ -933,27 +933,58 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxRows = Math.max(...columns.map(c => c.length));
         if (maxRows === 0) { alert('데이터를 입력해주세요.'); return; }
 
-        // For each row index, replace all {{data_N}} placeholders
+        const pattern1 = document.getElementById('imagePattern1').value || '';
+        const pattern2 = document.getElementById('imagePattern2').value || '';
+
+        // For each row index, replace all {{data_N}} placeholders and image path patterns
         const results = [];
         for (let i = 0; i < maxRows; i++) {
             let block = template;
+
+            // Replace {{data_N}}
             columns.forEach((col, idx) => {
                 const placeholder = `{{data_${idx + 1}}}`;
                 block = block.split(placeholder).join(col[i] !== undefined ? col[i] : '');
             });
+
+            const rowIdStr = String(i + 1).padStart(2, '0');
+
+            // Format image path 1 (Brand image pattern) with ascending rowIdStr for {U1}
+            let path1 = pattern1
+                .replace(/{U1}/gi, rowIdStr)
+                .replace(/{U}/gi, rowIdStr)
+                .replace(/{b}/gi, rowIdStr)
+                .replace(/{U2}/gi, '00')
+                .replace(/{p}/gi, '00');
+
+            // Format image path 2 (Product image pattern)
+            let path2 = pattern2
+                .replace(/{U1}/gi, rowIdStr)
+                .replace(/{b}/gi, rowIdStr)
+                .replace(/{U2}/gi, rowIdStr)
+                .replace(/{U}/gi, rowIdStr)
+                .replace(/{p}/gi, rowIdStr);
+
+            // Replace image path placeholders in block
+            if (pattern1) {
+                block = block.replace(/{{이미지경로1}}/g, path1);
+                block = block.replace(/{{브랜드이미지경로}}/g, path1);
+                block = block.replace(/{{이미지경로}}/g, path1);
+            }
+            if (pattern2) {
+                block = block.replace(/{{이미지경로2}}/g, path2);
+                block = block.replace(/{{상품이미지경로}}/g, path2);
+            }
+
+            // Replace brand comments and direct {U1} placeholders if present
+            block = block.replace(/<!-- 브랜드 \d+부터 오름차순 -->/g, `<!-- 브랜드 ${rowIdStr} -->`);
+            block = block.replace(/<!-- 브랜드 01부터 오름차순 -->/g, `<!-- 브랜드 ${rowIdStr} -->`);
+            block = block.replace(/{U1}/gi, rowIdStr);
+
             results.push(block);
         }
 
-        const pattern1 = document.getElementById('imagePattern1').value;
-        const pattern2 = document.getElementById('imagePattern2').value;
-
-        // Optional: replace image path patterns the same way as default engine
-        let resultHtml = results.join('\n');
-        if (pattern1) {
-            results.forEach((_, i) => {
-                resultHtml = resultHtml.replace(new RegExp(escapeRegExp(`{{이미지경로${i * 2 + 1}}}`), 'g'), pattern1.replace('{n}', i + 1));
-            });
-        }
+        const resultHtml = results.join('\n');
 
         els.outputResult.value = resultHtml;
         openModal();
